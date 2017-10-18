@@ -187,13 +187,9 @@ public class ActiveNotifier implements FineGrainedNotifier {
             logger.info("Empty change...");
             return null;
         }
-        Set<String> authors = new HashSet<String>();
-        for (Entry entry : entries) {
-            authors.add(entry.getAuthor().getDisplayName());
-        }
         MessageBuilder message = new MessageBuilder(notifier, r);
         message.append("Started by changes from ");
-        message.append(StringUtils.join(authors, ", "));
+        message.append(getAuthors(r, ""));
         message.append(" (");
         message.append(files.size());
         message.append(" file(s) changed)");
@@ -202,6 +198,25 @@ public class ActiveNotifier implements FineGrainedNotifier {
             message.appendCustomMessage();
         }
         return message.toString();
+    }
+
+    String getAuthors(AbstractBuild r, String authorPrefix) {
+      ChangeLogSet changeSet = r.getChangeSet();
+      List<Entry> entries = new LinkedList<Entry>();
+      Set<AffectedFile> files = new HashSet<AffectedFile>();
+      for (Object o : changeSet.getItems()) {
+          Entry entry = (Entry) o;
+          logger.info("Entry " + o);
+          entries.add(entry);
+          if (CollectionUtils.isNotEmpty(entry.getAffectedFiles())) {
+              files.addAll(entry.getAffectedFiles());
+          }
+      }
+      Set<String> authors = new HashSet<String>();
+      for (Entry entry : entries) {
+          authors.add(StringUtils.join(authorPrefix, entry.getAuthor().getDisplayName()));
+      }
+      return StringUtils.join(authors, ", ");
     }
 
     String getCommitList(AbstractBuild r) {
@@ -284,7 +299,7 @@ public class ActiveNotifier implements FineGrainedNotifier {
                                     UNSTABLE_STATUS_MESSAGE = "Unstable",
                                     REGRESSION_STATUS_MESSAGE = "Regression",
                                     UNKNOWN_STATUS_MESSAGE = "Unknown";
-        
+
         private StringBuffer message;
         private SlackNotifier notifier;
         private AbstractBuild build;
@@ -310,20 +325,20 @@ public class ActiveNotifier implements FineGrainedNotifier {
             Run previousBuild = r.getProject().getLastBuild().getPreviousBuild();
             Run previousSuccessfulBuild = r.getPreviousSuccessfulBuild();
             boolean buildHasSucceededBefore = previousSuccessfulBuild != null;
-            
+
             /*
              * If the last build was aborted, go back to find the last non-aborted build.
              * This is so that aborted builds do not affect build transitions.
              * I.e. if build 1 was failure, build 2 was aborted and build 3 was a success the transition
-             * should be failure -> success (and therefore back to normal) not aborted -> success. 
+             * should be failure -> success (and therefore back to normal) not aborted -> success.
              */
             Run lastNonAbortedBuild = previousBuild;
             while(lastNonAbortedBuild != null && lastNonAbortedBuild.getResult() == Result.ABORTED) {
                 lastNonAbortedBuild = lastNonAbortedBuild.getPreviousBuild();
             }
-            
-            
-            /* If all previous builds have been aborted, then use 
+
+
+            /* If all previous builds have been aborted, then use
              * SUCCESS as a default status so an aborted message is sent
              */
             if(lastNonAbortedBuild == null) {
@@ -331,38 +346,38 @@ public class ActiveNotifier implements FineGrainedNotifier {
             } else {
                 previousResult = lastNonAbortedBuild.getResult();
             }
-            
+
             /* Back to normal should only be shown if the build has actually succeeded at some point.
-             * Also, if a build was previously unstable and has now succeeded the status should be 
+             * Also, if a build was previously unstable and has now succeeded the status should be
              * "Back to normal"
              */
             if (result == Result.SUCCESS
-                    && (previousResult == Result.FAILURE || previousResult == Result.UNSTABLE) 
+                    && (previousResult == Result.FAILURE || previousResult == Result.UNSTABLE)
                     && buildHasSucceededBefore && notifier.getNotifyBackToNormal()) {
                 return BACK_TO_NORMAL_STATUS_MESSAGE;
             }
             if (result == Result.FAILURE && previousResult == Result.FAILURE) {
-                return STILL_FAILING_STATUS_MESSAGE;
+                return STILL_FAILING_STATUS_MESSAGE + " started by " + getAuthors(r, "@");
             }
             if (result == Result.SUCCESS) {
                 return SUCCESS_STATUS_MESSAGE;
             }
             if (result == Result.FAILURE) {
-                return FAILURE_STATUS_MESSAGE;
+                return FAILURE_STATUS_MESSAGE + " started by " + getAuthors(r, "@");
             }
             if (result == Result.ABORTED) {
                 return ABORTED_STATUS_MESSAGE;
             }
             if (result == Result.NOT_BUILT) {
-                return NOT_BUILT_STATUS_MESSAGE;
+                return NOT_BUILT_STATUS_MESSAGE + " started by " + getAuthors(r, "@");
             }
             if (result == Result.UNSTABLE) {
-                return UNSTABLE_STATUS_MESSAGE;
+                return UNSTABLE_STATUS_MESSAGE + " started by " + getAuthors(r, "@");;
             }
             if (lastNonAbortedBuild != null && result.isWorseThan(previousResult)) {
-                return REGRESSION_STATUS_MESSAGE;
+                return REGRESSION_STATUS_MESSAGE + " started by " + getAuthors(r, "@");;
             }
-            return UNKNOWN_STATUS_MESSAGE;
+            return UNKNOWN_STATUS_MESSAGE + " started by " + getAuthors(r, "@");;
         }
 
         public MessageBuilder append(String string) {
@@ -446,7 +461,7 @@ public class ActiveNotifier implements FineGrainedNotifier {
             message.append(envVars.expand(customMessage));
             return this;
         }
-        
+
         private String createBackToNormalDurationString(){
             // This status code guarantees that the previous build fails and has been successful before
             // The back to normal time is the time since the build first broke
