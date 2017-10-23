@@ -214,7 +214,7 @@ public class ActiveNotifier implements FineGrainedNotifier {
       }
       Set<String> authors = new HashSet<String>();
       for (Entry entry : entries) {
-          authors.add(StringUtils.join(authorPrefix, entry.getAuthor().getDisplayName()));
+          authors.add("@" + entry.getAuthor().getDisplayName());
       }
       return StringUtils.join(authors, ", ");
     }
@@ -270,7 +270,7 @@ public class ActiveNotifier implements FineGrainedNotifier {
 
     String getBuildStatusMessage(AbstractBuild r, boolean includeTestSummary, boolean includeFailedTests, boolean includeCustomMessage) {
         MessageBuilder message = new MessageBuilder(notifier, r);
-        message.appendStatusMessage();
+        message.appendStatusMessage(getAuthors(r, "@"));
         message.appendDuration();
         message.appendOpenLink();
         if (includeTestSummary) {
@@ -311,12 +311,12 @@ public class ActiveNotifier implements FineGrainedNotifier {
             startMessage();
         }
 
-        public MessageBuilder appendStatusMessage() {
-            message.append(this.escape(getStatusMessage(build)));
+        public MessageBuilder appendStatusMessage(String authors) {
+            message.append(this.escape(getStatusMessage(build, authors)));
             return this;
         }
 
-        private String getStatusMessage(AbstractBuild r) {
+        private String getStatusMessage(AbstractBuild r, String authors) {
             if (r.isBuilding()) {
                 return STARTING_STATUS_MESSAGE;
             }
@@ -357,27 +357,27 @@ public class ActiveNotifier implements FineGrainedNotifier {
                 return BACK_TO_NORMAL_STATUS_MESSAGE;
             }
             if (result == Result.FAILURE && previousResult == Result.FAILURE) {
-                return STILL_FAILING_STATUS_MESSAGE + " started by " + getAuthors(r, "@");
+                return STILL_FAILING_STATUS_MESSAGE + " started by " + authors;
             }
             if (result == Result.SUCCESS) {
                 return SUCCESS_STATUS_MESSAGE;
             }
             if (result == Result.FAILURE) {
-                return FAILURE_STATUS_MESSAGE + " started by " + getAuthors(r, "@");
+                return FAILURE_STATUS_MESSAGE + " started by " + authors;
             }
             if (result == Result.ABORTED) {
                 return ABORTED_STATUS_MESSAGE;
             }
             if (result == Result.NOT_BUILT) {
-                return NOT_BUILT_STATUS_MESSAGE + " started by " + getAuthors(r, "@");
+                return NOT_BUILT_STATUS_MESSAGE + " started by " + authors;
             }
             if (result == Result.UNSTABLE) {
-                return UNSTABLE_STATUS_MESSAGE + " started by " + getAuthors(r, "@");;
+                return UNSTABLE_STATUS_MESSAGE + " started by " + authors;
             }
             if (lastNonAbortedBuild != null && result.isWorseThan(previousResult)) {
-                return REGRESSION_STATUS_MESSAGE + " started by " + getAuthors(r, "@");;
+                return REGRESSION_STATUS_MESSAGE + " started by " + authors;
             }
-            return UNKNOWN_STATUS_MESSAGE + " started by " + getAuthors(r, "@");;
+            return UNKNOWN_STATUS_MESSAGE + " started by " + authors;
         }
 
         public MessageBuilder append(String string) {
