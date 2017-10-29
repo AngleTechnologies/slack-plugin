@@ -214,7 +214,7 @@ public class ActiveNotifier implements FineGrainedNotifier {
       }
       Set<String> authors = new HashSet<String>();
       for (Entry entry : entries) {
-          authors.add("@" + entry.getAuthor().getDisplayName());
+          authors.add(authorPrefix + entry.getAuthor().getDisplayName());
       }
       return StringUtils.join(authors, ", ");
     }
@@ -354,7 +354,7 @@ public class ActiveNotifier implements FineGrainedNotifier {
             if (result == Result.SUCCESS
                     && (previousResult == Result.FAILURE || previousResult == Result.UNSTABLE)
                     && buildHasSucceededBefore && notifier.getNotifyBackToNormal()) {
-                return BACK_TO_NORMAL_STATUS_MESSAGE;
+                return BACK_TO_NORMAL_STATUS_MESSAGE + " fixed by " + authors;
             }
             if (result == Result.FAILURE && previousResult == Result.FAILURE) {
                 return STILL_FAILING_STATUS_MESSAGE + " started by " + authors;
